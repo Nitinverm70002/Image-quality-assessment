@@ -1,90 +1,40 @@
-import numpy as np
+PSNR (Peak Signal-to-Noise Ratio) and SSIM (Structural Similarity Index) between two images.
+
 import cv2
+import numpy as np
 from skimage.metrics import structural_similarity as ssim
 
+# Function to calculate PSNR (Peak Signal-to-Noise Ratio)
+def calculate_psnr(imageA, imageB):
+    mse = np.mean((imageA - imageB) ** 2)  # Mean Squared Error
+    if mse == 0:
+        return 100  # Perfect match (if images are identical)
+    psnr = 10 * np.log10(255.0 ** 2 / mse)
+    return psnr
 
-class Particle:
-    def __init__(self, image_shape):
-        self.position = np.random.uniform(0, 255, image_shape)
-        self.velocity = np.random.uniform(-10, 10, image_shape)
-        self.best_position = self.position.copy()
-        self.best_fitness = -float('inf')  # Initial fitness set to negative infinity
-
-
-def objective_function(image, reference):
-    # Calculate SSIM between the image and reference image
-    score, _ = ssim(image, reference, full=True)
-
+# Function to calculate SSIM (Structural Similarity Index)
+def calculate_ssim(imageA, imageB):
+    # Convert images to grayscale (SSIM works better in grayscale)
+    imageA_gray = cv2.cvtColor(imageA, cv2.COLOR_BGR2GRAY)
+    imageB_gray = cv2.cvtColor(imageB, cv2.COLOR_BGR2GRAY)
+    
+    score, _ = ssim(imageA_gray, imageB_gray, full=True)
     return score
 
+# Main function to read images and calculate metrics
+if __name__ == "__main__":
+    # Load the original and distorted images
+    imageA = cv2.imread('input_images/imageA.jpg')
+    imageB = cv2.imread('input_images/imageB.jpg')
+    
+    if imageA is None or imageB is None:
+        print("Error: One or both images could not be loaded. Please check the file paths.")
+        exit()
 
-def pso(image, reference, num_particles, max_iter, inertia_weight=0.5, cognitive_weight=1.5, social_weight=1.5):
-    # Initialize swarm
-    image_shape = image.shape
-    swarm = [Particle(image_shape) for _ in range(num_particles)]
+    # Calculate PSNR and SSIM
+    psnr_value = calculate_psnr(imageA, imageB)
+    ssim_value = calculate_ssim(imageA, imageB)
 
-    # Initialize global best
-    global_best_position = None
-    global_best_fitness = -float('inf')
-
-    # Iterate over generations
-    for _ in range(max_iter):
-        for particle in swarm:
-            # Evaluate fitness
-            fitness = objective_function(particle.position, reference)
-
-            # Update personal best
-            if fitness > particle.best_fitness:
-                particle.best_fitness = fitness
-                particle.best_position = particle.position.copy()
-
-            # Update global best
-            if fitness > global_best_fitness:
-                global_best_fitness = fitness
-                global_best_position = particle.position.copy()
-
-            # Update velocity
-            particle.velocity = (inertia_weight * particle.velocity +
-                                 cognitive_weight * np.random.rand(*image_shape) * (
-                                             particle.best_position - particle.position) +
-                                 social_weight * np.random.rand(*image_shape) * (
-                                             global_best_position - particle.position))
-
-            # Update position
-            particle.position += particle.velocity
-
-            # Clip position to ensure within bounds (0-255)
-            particle.position = np.clip(particle.position, 0, 255)
-
-    return global_best_position, global_best_fitness
-
-
-# Load reference and distorted images with raw string literals
-reference_image = cv2.imread(r"/content/bridge.png", cv2.IMREAD_GRAYSCALE)
-distorted_image = cv2.imread(r"/content/bridge.JPEG.2.png", cv2.IMREAD_GRAYSCALE)
-
-# Check if images were loaded successfully
-if reference_image is None:
-    print("Error: Failed to load reference image")
-    exit()
-
-if distorted_image is None:
-    print("Error: Failed to load distorted image")
-    exit()
-
-# Set PSO parameters
-num_particles = 50
-max_iter = 100
-
-# Perform PSO optimization
-best_image, best_fitness = pso(distorted_image, reference_image, num_particles, max_iter)
-
-# Output results
-print("Best Fitness (SSIM):", best_fitness)
-print("SSIM:", score)
-
-# Optionally, save or display the best optimized image
-if best_image is not None:
-    cv2.imwrite("best_image.jpg", best_image)
-else:
-    print("Error: Failed to generate best image")
+    # Display the results
+    print(f"PSNR between the images: {psnr_value:.2f}")
+    print(f"SSIM between the images: {ssim_value:.4f}")
